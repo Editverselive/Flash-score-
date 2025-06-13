@@ -20,9 +20,26 @@ app.get('/api/match', async (req, res) => {
       args: chromium.args,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
+      defaultViewport: { width: 1280, height: 720 },
+      timeout: 0 // disable puppeteer default timeout
     });
+
     const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2' });
+
+    // Block unnecessary requests (images, css, fonts, ads)
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
+
+    await page.goto(url, {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000 // 60 seconds timeout for navigation
+    });
 
     const data = await page.evaluate(() => {
       const title = document.querySelector('.tournamentHeader__country')?.innerText || 'No Title';
